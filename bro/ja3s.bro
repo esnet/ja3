@@ -8,71 +8,53 @@
 # All rights reserved.
 # Licensed under the BSD 3-Clause license. 
 # For full license text, see LICENSE.txt file in the repo root  or https://opensource.org/licenses/BSD-3-Clause
-#
+
+@load ./consts
+
+module JA3;
 
 
-
-module JA3_Server;
-
-export {
-redef enum Log::ID += { LOG };
-}
-
-type JA3Sstorage: record {
-       server_version:      count &default=0 &log;
-       server_cipher:      count &default=0 &log;
-       server_extensions:   string &default="" &log;
+# We store the data for the server here, until we generate the hash
+type JA3_Server_Fields: record {
+	server_version:     count &default=0 &log;
+	server_cipher:      count &default=0 &log;
+	server_extensions:  string &default="" &log;
 };
 
+
+# Add the fingerprint to the connection record.
 redef record connection += {
-       ja3sfp: JA3Sstorage &optional;
+	ja3s: JA3_Server_Fields &optional;
 };
 
+# Add the field to the SSL log
 redef record SSL::Info += {
-  ja3s:            string &optional &log;
-# LOG FIELD VALUES #
-#  ja3s_version:  string &optional &log;
-#  ja3s_cipher:  string &optional &log;
-#  ja3s_extensions: string &optional &log;
+	ja3s: string &optional &log;
 };
 
-
-const sep = "-";
-event bro_init() {
-    Log::create_stream(JA3_Server::LOG,[$columns=JA3Sstorage, $path="ja3sfp"]);
-}
 
 event ssl_extension(c: connection, is_orig: bool, code: count, val: string)
-{
-if ( ! c?$ja3sfp )
-    c$ja3sfp=JA3Sstorage();
-    if ( is_orig == F ) { 
-        if ( c$ja3sfp$server_extensions == "" ) {
-            c$ja3sfp$server_extensions = cat(code);
-        }
-        else {
-            c$ja3sfp$server_extensions = string_cat(c$ja3sfp$server_extensions, sep,cat(code));
-        }
-    }
-}
+	{
+	if ( !c?$ja3s )
+		c$ja3s=JA3_Server_Fields();
 
-event ssl_server_hello(c: connection, version: count, possible_ts: time, server_random: string, session_id: string, cipher: count, comp_method: count) &priority=1
-{
-    if ( !c?$ja3sfp )
-    c$ja3sfp=JA3Sstorage();
-    c$ja3sfp$server_version = version;
-    c$ja3sfp$server_cipher = cipher;
-    local sep2 = ",";
-    local ja3s_string = string_cat(cat(c$ja3sfp$server_version),sep2,cat(c$ja3sfp$server_cipher),sep2,c$ja3sfp$server_extensions);
-    local ja3sfp_1 = md5_hash(ja3s_string);
-    c$ssl$ja3s = ja3sfp_1;
+	if ( !is_orig )
+		c$ja3s$server_extensions = append_val(c$ja3s$server_extensions, code);
+	}
 
-# LOG FIELD VALUES #
-#c$ssl$ja3s_version = cat(c$ja3sfp$server_version);
-#c$ssl$ja3s_cipher = cat(c$ja3sfp$server_cipher);
-#c$ssl$ja3s_extensions = c$ja3sfp$server_extensions;
-#
-# FOR DEBUGGING #
-#print "JA3S: "+ja3sfp_1+" Fingerprint String: "+ja3s_string;
+@if ( Version::at_least("2.6") )
+event ssl_client_hello(c: connection, version: count, record_version:count, possible_ts: time, client_random: string, session_id: string, ciphers: index_vec, comp_methods: vector of count) &priority=1
+@else
+event ssl_client_hello(c: connection, version: count, possible_ts: time, client_random: string, session_id: string, ciphers: index_vec) &priority=1
+@endif
+	{
+	if ( !c?$ja3s )
+		c$ja3s=JA3_Server_Fields();
 
-}
+	c$ja3s$server_version = version;
+	c$ja3s$server_cipher = cipher;
+
+	local ja3s_string = cat_sep(sep2, "", cat(c$ja3s$server_version), cat(c$ja3s$server_cipher), c$ja3s$server_extensions);
+
+	c$ssl$ja3s = md5_hash(ja3s_string);
+	}

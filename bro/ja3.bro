@@ -1,7 +1,7 @@
 # This Bro script appends JA3 to ssl.log
-# Version 1.4 (October 2018)
+# Version 1.3 (June 2017)
 #
-# Original authors: John B. Althouse (jalthouse@salesforce.com) & Jeff Atkinson (jatkinson@salesforce.com)
+# Authors: John B. Althouse (jalthouse@salesforce.com) & Jeff Atkinson (jatkinson@salesforce.com)
 #
 # Copyright (c) 2017, salesforce.com, inc.
 # All rights reserved.
@@ -9,10 +9,12 @@
 # For full license text, see LICENSE.txt file in the repo root  or https://opensource.org/licenses/BSD-3-Clause
 
 @load ./consts
+@load ./utils
 
 module JA3;
 
-type TLSFPStorage: record {
+# We store the data for the client here, until we generate the hash
+type JA3_Client_Fields: record {
 	client_version:  count &default=0 &log;
 	client_ciphers:  string &default="" &log;
 	extensions:      string &default="" &log;
@@ -22,58 +24,47 @@ type TLSFPStorage: record {
 
 # Add the fingerprint to the connection record.
 redef record connection += {
-       tlsfp: TLSFPStorage &optional;
+       ja3: JA3_Client_Fields &optional;
 }; 
 
 # Add the field to the SSL log
 redef record SSL::Info += {
-	ja3:            string &optional &log;
+	ja3: string &optional &log;
 };
-
-function append_val(current: string, new_val: count): string
-	{
-	if ( new_val in grease )
-		return current;
-
-	if ( current == "" )
-		return cat(new_val);
-
-	return cat_sep(sep, "", current, cat(new_val));
-	}
 
 event ssl_extension(c: connection, is_orig: bool, code: count, val: string)
 	{
-	if ( ! c?$tlsfp )
-    		c$tlsfp=TLSFPStorage();
+	if ( ! c?$ja3 )
+		c$ja3=JA3_Client_Fields();
 
 	if ( is_orig )
-		c$tlsfp$extensions = append_val(c$tlsfp$extensions, code);
+		c$ja3$extensions = append_val(c$ja3$extensions, code);
 	}
 
 event ssl_extension_ec_point_formats(c: connection, is_orig: bool, point_formats: index_vec)
 	{
-	if ( !c?$tlsfp )
-    		c$tlsfp=TLSFPStorage();
+	if ( !c?$ja3 )
+		c$ja3=JA3_Client_Fields();
 		
     	if ( is_orig )
 		{
         	for ( i in point_formats )
 			{
-			c$tlsfp$ec_point_fmt = append_val(c$tlsfp$ec_point_fmt, point_formats[i]);
+			c$ja3$ec_point_fmt = append_val(c$ja3$ec_point_fmt, point_formats[i]);
         		}
     		}
 	}
 
 event ssl_extension_elliptic_curves(c: connection, is_orig: bool, curves: index_vec)
 	{
-    	if ( !c?$tlsfp )
-    		c$tlsfp=TLSFPStorage();
+	if ( !c?$ja3 )
+		c$ja3=JA3_Client_Fields();
 		
     	if ( is_orig )
 		{
         	for ( i in curves )
 			{
-			c$tlsfp$e_curves = append_val(c$tlsfp$e_curves, curves[i]);
+			c$ja3$e_curves = append_val(c$ja3$e_curves_fmt, curves[i]);
         		}
     		}
 	}
@@ -84,17 +75,17 @@ event ssl_client_hello(c: connection, version: count, record_version:count, poss
 event ssl_client_hello(c: connection, version: count, possible_ts: time, client_random: string, session_id: string, ciphers: index_vec) &priority=1
 @endif
 	{
-	if ( !c?$tlsfp )
-    		c$tlsfp=TLSFPStorage();
+	if ( !c?$ja3 )
+		c$ja3=JA3_Client_Fields();
 		
-    	c$tlsfp$client_version = version;
+	c$ja3$client_version = version;
 	
     	for ( i in ciphers )
 		{
-		c$tlsfp$client_ciphers = append_val(c$tlsfp$client_ciphers, ciphers[i]);
+		c$ja3$ciphers = append_val(c$ja3$ciphers, ciphers[i]);
     		}
 		
-    	local ja3_string = cat_sep(sep2, "", cat(c$tlsfp$client_version), c$tlsfp$client_ciphers, c$tlsfp$extensions, c$tlsfp$e_curves, c$tlsfp$ec_point_fmt);
+	local ja3_string = cat_sep(sep2, "", cat(c$ja3$client_version), c$ja3$client_ciphers, c$ja3$extensions, c$ja3$e_curves, c$ja3$ec_point_fmt);
 
     	c$ssl$ja3 = md5_hash(ja3_string);
-}
+	}
