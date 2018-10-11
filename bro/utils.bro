@@ -2,7 +2,7 @@
 
 function append_option(current: string, new_val: count): string
 	{
-	if ( val in grease )
+	if ( new_val in grease )
 		return current;
 
 	if ( current == "" )
