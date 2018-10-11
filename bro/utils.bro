@@ -4,7 +4,7 @@ module JA3;
 
 @load ./consts
 
-function append_option(current: string, new_val: count): string
+function append_val(current: string, new_val: count): string
 	{
 	if ( new_val in grease )
 		return current;
