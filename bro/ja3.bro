@@ -64,7 +64,7 @@ event ssl_extension_elliptic_curves(c: connection, is_orig: bool, curves: index_
 		{
         	for ( i in curves )
 			{
-			c$ja3$e_curves_fmt = append_val(c$ja3$e_curves_fmt, curves[i]);
+			c$ja3$e_curves = append_val(c$ja3$e_curves, curves[i]);
         		}
     		}
 	}
