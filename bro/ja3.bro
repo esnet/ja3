@@ -30,9 +30,9 @@ redef record SSL::Info += {
 	ja3:            string &optional &log;
 };
 
-function append_option(current: string, new_val: count): string
+function append_val(current: string, new_val: count): string
 	{
-	if ( val in grease )
+	if ( new_val in grease )
 		return current;
 
 	if ( current == "" )
@@ -73,7 +73,7 @@ event ssl_extension_elliptic_curves(c: connection, is_orig: bool, curves: index_
 		{
         	for ( i in curves )
 			{
-			c$tlsfp$e_curves = append_val(c$tlsfp$e_curves_fmt, curves[i]);
+			c$tlsfp$e_curves = append_val(c$tlsfp$e_curves, curves[i]);
         		}
     		}
 	}
@@ -91,7 +91,7 @@ event ssl_client_hello(c: connection, version: count, possible_ts: time, client_
 	
     	for ( i in ciphers )
 		{
-		c$tlsfp$ciphers = append_val(c$tlsfp$ciphers, ciphers[i]);
+		c$tlsfp$client_ciphers = append_val(c$tlsfp$client_ciphers, ciphers[i]);
     		}
 		
     	local ja3_string = cat_sep(sep2, "", cat(c$tlsfp$client_version), c$tlsfp$client_ciphers, c$tlsfp$extensions, c$tlsfp$e_curves, c$tlsfp$ec_point_fmt);
