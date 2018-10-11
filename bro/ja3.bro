@@ -64,7 +64,7 @@ event ssl_extension_elliptic_curves(c: connection, is_orig: bool, curves: index_
 		{
         	for ( i in curves )
 			{
-			c$ja3$e_curves = append_val(c$ja3$e_curves_fmt, curves[i]);
+			c$ja3$e_curves_fmt = append_val(c$ja3$e_curves_fmt, curves[i]);
         		}
     		}
 	}
@@ -82,7 +82,7 @@ event ssl_client_hello(c: connection, version: count, possible_ts: time, client_
 	
     	for ( i in ciphers )
 		{
-		c$ja3$ciphers = append_val(c$ja3$ciphers, ciphers[i]);
+		c$ja3$client_ciphers = append_val(c$ja3$client_ciphers, ciphers[i]);
     		}
 		
 	local ja3_string = cat_sep(sep2, "", cat(c$ja3$client_version), c$ja3$client_ciphers, c$ja3$extensions, c$ja3$e_curves, c$ja3$ec_point_fmt);
