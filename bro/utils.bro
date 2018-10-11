@@ -1,5 +1,9 @@
 ## Helpful utilities for JA3 and JA3S
 
+module JA3;
+
+@load ./consts
+
 function append_option(current: string, new_val: count): string
 	{
 	if ( new_val in grease )
